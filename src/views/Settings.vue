@@ -13,14 +13,14 @@
 
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
-import General from '@/components/settings/General.vue';
-import Metadata from '@/components/metadata/Metadata.vue';
+
+const components = {
+  General: () => import('@/components/settings/General.vue'),
+  Metadata: () => import('@/components/metadata/Metadata.vue'),
+};
 
 @Component({
-  components: {
-    General,
-    Metadata
-  },
+  components
 })
 export default class Settings extends Vue {
   private activeTab: number = 0;
