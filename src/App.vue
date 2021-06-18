@@ -18,8 +18,8 @@
 import { Component, Vue, Watch } from 'vue-property-decorator';
 import { cryptoWaitReady } from '@polkadot/util-crypto';
 import keyring from '@polkadot/ui-keyring';
-import Navbar from './components/Navbar.vue';
-import Footer from './components/Footer.vue';
+// import Navbar from './components/Navbar.vue';
+// import Footer from './components/Footer.vue';
 import isShareMode from '@/utils/isShareMode'
 import coingecko from '@/coingecko'
 
@@ -38,8 +38,8 @@ import coingecko from '@/coingecko'
     }
   },
   components: {
-    Navbar,
-    Footer
+    Navbar: () => import('./components/Navbar.vue'),
+    Footer: () => import('./components/Footer.vue'),
   }
 })
 export default class Dashboard extends Vue {

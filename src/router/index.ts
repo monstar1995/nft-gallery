@@ -3,9 +3,6 @@ import Router from 'vue-router';
 Vue.use(Router);
 import { apiEnabled } from '@/routeGuard';
 
-import Accounts from '@/router/accounts';
-import Transfer from '@/router/transfer';
-import Toolbox from '@/router/toolbox';
 import Rmrk from '@/router/rmrk';
 import Profile from '@/router/profile';
 
@@ -15,7 +12,6 @@ const EsSustainability = () => import('@/components/landing/EsSustainability.vue
 const Carbonless = () => import('@/components/landing/Carbonless.vue');
 const EsCarbonless = () => import('@/components/landing/EsCarbonless.vue');
 const Settings = () => import('@/views/Settings.vue');
-const Extrinsics = () => import('@/views/Extrinsics.vue');
 const Leaderboard = () => import('@/components/landing/Leaderboard.vue');
 const About = () => import('@/components/landing/About.vue');
 const Contact = () => import('@/components/landing/Contact.vue');
@@ -52,21 +48,12 @@ export default new Router({
       name: 'esCarbonless',
       component: EsCarbonless,
     },
-    ...Accounts,
-    ...Transfer,
-    ...Toolbox,
     ...Rmrk,
     ...Profile,
     {
 			path: '/settings',
       name: 'settings',
       component: Settings
-    },
-    {
-			path: '/extrinsics',
-      name: 'extrinsics',
-      component: Extrinsics,
-      beforeEnter: apiEnabled,
     },
     {
       path: '/leaderboard',
