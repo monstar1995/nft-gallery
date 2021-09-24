@@ -4,7 +4,6 @@ import VuexPersist from 'vuex-persist';
 import SettingModule from '@vue-polkadot/vue-settings';
 import Connector from '@vue-polkadot/vue-api';
 import IdentityModule from './vuex/IdentityModule';
-import { changeCurrentColor } from '@/colors'
 import correctFormat from './utils/ss58Format';
 
 const vuexLocalStorage = new VuexPersist({
@@ -29,7 +28,7 @@ const apiPlugin = (store: any) => {
       ss58Format: correctFormat(chainSS58),
       tokenDecimals: chainDecimals[0] || 12,
       tokenSymbol: chainTokens[0] || 'Unit',
-      genesisHash: genesisHash || ''
+      genesisHash: genesisHash || '',
     })
 
     const nodeInfo = store.getters.availableNodes
@@ -68,6 +67,11 @@ export default new Vuex.Store({
     chainProperties: {},
     explorer: {},
     lang: {},
+    indexer: {
+      indexerHealthy: true,
+      lastProcessedHeight: undefined,
+      lastProcessedTimestamp: undefined,
+    },
     language: {
       userLang: process.env.VUE_APP_I18N_LOCALE || 'en',
       langsFlags: [
@@ -210,16 +214,26 @@ export default new Vuex.Store({
     },
     setFiatPrice(state: any, data) {
       state.fiatPrice = Object.assign({}, state.fiatPrice, data)
+    },
+    setIndexerStatus(state: any, data) {
+      state.indexer = Object.assign({}, state.indexer, data)
     }
   },
   actions: {
     setFiatPrice({ commit }: any, data) {
       commit('setFiatPrice', data);
+    },
+    upateIndexerStatus({ commit }: any, data) {
+      commit('setIndexerStatus', data)
     }
+
   },
   getters: {
-    getChainProperties: ({chainProperties}) => chainProperties,
-    getUserLang: ({ language }) => language.userLang || 'en'
+    getChainProperties: ({ chainProperties }) => chainProperties,
+    getUserLang: ({ language }) => language.userLang || 'en',
+    getCurrentKSMValue: ({ fiatPrice }) => fiatPrice['kusama']['usd'],
+    getCurrentChain: ({ explorer }) => explorer.chain,
+    getIndexer: ({ indexer }) => indexer
   },
   modules: {
     setting: SettingModule,

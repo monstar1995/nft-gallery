@@ -4,16 +4,26 @@
 		<b-tooltip class="p-2"
 		 :label="icons[index].label"
 		  position="is-top"
-		  v-clipboard:copy="icons[index].label"
 		  >
 			<b-icon class="property"
+			   v-if="icons[index].icon !== 'twitter'"
 		      :size="icons[index].size"
 		      :pack="icons[index].pack"
 		      :icon="icons[index].icon"
-		  		@click.native="toast('Copied to clipboard')"
+			   v-clipboard:copy="icons[index].label"
+              @click.native="icons[index].icon === 'envelope'
+              ? openMail(icons[index].label)
+              : toast('Copied to clipboard')">
+            </b-icon>
+			<b-icon class="property"
+			   v-else
+		      :size="icons[index].size"
+		      :pack="icons[index].pack"
+		      :icon="icons[index].icon"
+		  	  @click.native="navigateToTwitter(icons[index].label)"
 		    >
 		    </b-icon>
-		</b-tooltip> 			
+		</b-tooltip>		
  		</span>
 	</div>
 </template>
@@ -119,12 +129,20 @@ export default class OnChainProperty extends Vue{
 
 	public toast(message: string): void {
 		this.$buefy.toast.open(message);
-  }
+  	}
 
-	@Watch('legal')
-	async watchLegal(newLegal: string, oldLegal: string){
-		this.legalVerified();
+	public navigateToTwitter(handle: string): void {
+		window.open('https://twitter.com/' + handle.replace(/@/, ''), '_blank');
 	}
+
+    public openMail(handle: string): void {
+      location.href = `mailto:${handle}?subject=I%20like%20your%20Creation%20on%20KodaDot&body=Hey%2C%20I've%20found%20your%20creation%20on%20KodaDot%20interesting.%0D%0ACan%20you%20please%20tell%20me%20more%20about%20it%3F`;
+    }
+
+  @Watch('legal')
+  async watchLegal(newLegal: string, oldLegal: string) {
+    this.legalVerified();
+  }
 
   @Watch('email')
   async watchEmail(newEmail: string, oldEmail: string){

@@ -12,6 +12,7 @@
             v-model="selectedCollection"
             expanded
           >
+            <option disabled selected value=""> -- </option>
             <option
               v-for="option in collections"
               :value="option"
@@ -102,7 +103,7 @@ import {
   MintNFT,
   getNftId
 } from '../service/scheme';
-import { pinFile, pinJson } from '@/proxy';
+import { pinFile, pinJson, getKey, revokeKey } from '@/proxy';
 import { unSanitizeIpfsUrl, ipfsToArweave } from '@/utils/ipfs';
 import PasswordInput from '@/components/shared/PasswordInput.vue';
 import NFTUtils from '../service/NftUtils';
@@ -119,6 +120,7 @@ import {
 } from './mintUtils';
 import { formatBalance } from '@polkadot/util';
 import { DispatchError } from '@polkadot/types/interfaces';
+import { APIKeys, pinFile as pinFileToIPFS  } from '@/pinata';
 
 interface NFTAndMeta extends NFT {
   meta: NFTMetadata;
@@ -140,7 +142,6 @@ type MintedCollection = {
     PasswordInput,
     Tooltip,
     Support,
-    BalanceInput: () => import('@/components/shared/BalanceInput.vue'),
     Money: () => import('@/components/shared/format/Money.vue'),
     Loader: () => import('@/components/shared/Loader.vue'),
     ArweaveUploadSwitch: () => import('./ArweaveUploadSwitch.vue')
@@ -314,7 +315,7 @@ export default class CreateToken extends Mixins(
           res => this.resolveStatus(res.status, true)
         )
       );
-    } catch (e) {
+    } catch (e: any) {
       showNotification(e.toString(), notificationTypes.danger);
       this.isLoading = false;
     }
@@ -338,7 +339,8 @@ export default class CreateToken extends Mixins(
     };
 
     try {
-      const fileHash = await pinFile(this.nft.file);
+      const keys: APIKeys = await getKey(this.accountId);
+      const fileHash = await pinFileToIPFS(this.nft.file, keys);
 
       if (!secondaryFileVisible(this.nft.file)) {
         meta.image = unSanitizeIpfsUrl(fileHash);
@@ -346,15 +348,18 @@ export default class CreateToken extends Mixins(
       } else {
         meta.animation_url = unSanitizeIpfsUrl(fileHash);
         if (this.nft.secondFile) {
-          const coverImageHash = await pinFile(this.nft.secondFile);
+          const coverImageHash = await pinFileToIPFS(this.nft.secondFile, keys);
           meta.image = unSanitizeIpfsUrl(coverImageHash);
         }
       }
 
+      revokeKey(keys.pinata_api_key)
+      .then(console.log, console.warn);
+
       // TODO: upload meta to IPFS
       const metaHash = await pinJson(meta);
       return unSanitizeIpfsUrl(metaHash);
-    } catch (e) {
+    } catch (e: any) {
       throw new ReferenceError(e.message);
     }
   }
@@ -424,7 +429,7 @@ export default class CreateToken extends Mixins(
           res => this.resolveStatus(res.status)
         )
       );
-    } catch (e) {
+    } catch (e: any) {
       showNotification(e.message, notificationTypes.danger);
     }
   }
@@ -467,9 +472,9 @@ export default class CreateToken extends Mixins(
     const { api } = Connector.getInstance();
     if (dispatchError.isModule) {
       const decoded = api.registry.findMetaError(dispatchError.asModule);
-      const { documentation, name, section } = decoded;
+      const { docs, name, section } = decoded;
       showNotification(
-        `[ERR] ${section}.${name}: ${documentation.join(' ')}`,
+        `[ERR] ${section}.${name}: ${docs.join(' ')}`,
         notificationTypes.danger
       );
     } else {

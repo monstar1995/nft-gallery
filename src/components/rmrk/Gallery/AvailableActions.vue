@@ -3,11 +3,12 @@
     <Loader v-model="isLoading" :status="status" />
     <div v-if="accountId" class="buttons">
       <b-button v-for="action in actions" :key="action" :type="iconType(action)[0]"
+      outlined
       @click="handleAction(action)">
         {{ action }}
       </b-button>
     </div>
-    <component class="mb-4" v-if="showMeta" :is="showMeta" @input="updateMeta" />
+    <component class="mb-4" v-if="showMeta" :is="showMeta" @input="updateMeta" emptyOnError />
     <b-button
       v-if="showSubmit"
       type="is-primary"
@@ -42,7 +43,7 @@ type DescriptionTuple = [string, string] | [string];
 const iconResolver: Record<string, DescriptionTuple> = {
   SEND: ['is-info is-dark'],
   CONSUME: ['is-danger'],
-  LIST: ['is-dark'],
+  LIST: ['is-light'],
   BUY: ['is-success is-dark']
 };
 
@@ -251,6 +252,12 @@ export default class AvailableActions extends Mixins(RmrkVersionMixin) {
     });
   }
 
+  unlistNft() {
+    // change the selected action to list and change meta value to 0
+    this.selectedAction = 'LIST';
+    this.meta = 0;
+    this.submit();
+  }
 }
 </script>
 

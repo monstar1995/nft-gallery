@@ -2,7 +2,7 @@
   <div>
     <MetadataUpload
       v-model="vFile"
-      label="Drop your NFT here or click to upload. We support various media types (bmp/ gif/ jpeg/ png/ svg/ tiff/ webp/ mp4/ ogv/ quicktime/ webm/ glb/ flac/ mp3/ json)"
+      label="Drop your NFT here or click to upload or simply paste image from clipboard. We support various media types (BMP, GIF, JPEG, PNG, SVG, TIFF, WEBP, MP4, OGV, QUICKTIME, WEBM, GLB, FLAC, MP3, JSON)"
       expanded
       preview
     />
@@ -56,7 +56,7 @@
       </b-switch>
     </b-field>
 
-    <BalanceInput v-model="vPrice" label="Price" />
+    <BalanceInput @input="updateMeta" label="Price" />
     <b-message
       v-if="hasPrice"
       icon="exclamation-triangle"
@@ -92,7 +92,7 @@ export default class CreateItem extends Vue {
   @PropSync('description', { type: String }) vDescription!: string
   @PropSync('edition', { type: Number }) vEdition!: number;
   @PropSync('nsfw', { type: Boolean }) vNsfw!: boolean;
-  @PropSync('price', { type: Number }) vPrice!: string | number;
+  @PropSync('price', { type: [Number, String] }) vPrice!: string | number;
   @PropSync('tags', { type: Array }) vTags!: Attribute[];
   @PropSync('file', { type: Blob }) vFile!: Blob | null;
   @PropSync('secondFile', { type: Blob }) vSecondFile!: Blob | null;
@@ -100,6 +100,11 @@ export default class CreateItem extends Vue {
 
   @Prop(Number) public max!: number;
   @Prop(Number) public alreadyMinted!: number;
+
+  protected updateMeta(value: number) {
+    console.log(typeof value, value);
+    this.vPrice = value;
+  }
 
   get fileType() {
     return resolveMedia(this.vFile?.type);

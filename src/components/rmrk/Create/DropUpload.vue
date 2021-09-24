@@ -13,7 +13,6 @@
         </div>
       </section>
     </b-upload>
-    <Tooltip iconsize="is-medium" label="Upload your image of the NFT" />
   </b-field>
 </template>
 
@@ -27,7 +26,7 @@ import Tooltip from '@/components/shared/Tooltip.vue';
   }
 })
 export default class extends Vue {
-  @Prop({ default: 'Drop your NFT here or click to upload' }) public label!: string;
+  @Prop({ default: 'Drop your NFT here or click to upload or simply paste image from clipboard' }) public label!: string;
   @Prop({ default: 'upload' }) public icon!: string;
   @Prop(Boolean) public expanded!: boolean;
   @Prop(Boolean) public preview!: boolean;
@@ -35,6 +34,25 @@ export default class extends Vue {
   private file: Blob | null = null;
   protected url: string = '';
   protected hasError: boolean = false;
+
+
+  public created() {
+    document.addEventListener('paste', this.onPasteImage);
+  }
+
+  public beforeDestroy() {
+    document.removeEventListener('paste', this.onPasteImage);
+  }
+
+  public onPasteImage(pasteEvent: ClipboardEvent) {
+    /* handling paste logic */
+    const item :DataTransferItem | any = pasteEvent?.clipboardData?.items[0];
+    if (item?.type.indexOf('image') === 0) {
+      const blob = item.getAsFile();
+      this.file = blob;
+      this.createInput(blob);
+    }
+  }
 
   @Watch('file')
   public createInput(file: Blob): void {

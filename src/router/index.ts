@@ -3,7 +3,6 @@ import Router from 'vue-router';
 Vue.use(Router);
 import { apiEnabled } from '@/routeGuard';
 
-import Accounts from '@/router/accounts';
 import Transfer from '@/router/transfer';
 import Toolbox from '@/router/toolbox';
 import Rmrk from '@/router/rmrk';
@@ -22,6 +21,7 @@ const Contact = () => import('@/components/landing/Contact.vue');
 const Partnership = () => import('@/components/landing/Partnership.vue');
 const Tutorials = () => import('@/components/landing/Tutorials.vue');
 const FourZeroFour = () => import('@/components/FourZeroFour.vue')
+const Error = () => import('@/components/Error.vue')
 // const Toolbox = () => import('@/components/toolbox/Toolbox.vue');
 
 export default new Router({
@@ -52,7 +52,6 @@ export default new Router({
       name: 'esCarbonless',
       component: EsCarbonless,
     },
-    ...Accounts,
     ...Transfer,
     ...Toolbox,
     ...Rmrk,
@@ -101,10 +100,26 @@ export default new Router({
         window.location.href = 'https://tally.so/r/mVP06w'
       }
     },
+    {
+      path: '/permafrost',
+      name: 'permafrost',
+      component: {},
+      beforeEnter(to, from, next) {
+        window.location.href = 'https://discord.gg/88da2MEfU9'
+      }
+    },
+    {
+      path: '/error',
+      name: 'error',
+      component: Error,
+    },
 		{
 			path: '*',
 			name: 'FourZeroFour',
 			component: FourZeroFour,
 		},
   ],
+  scrollBehavior() {
+    return { x: 0, y: 0 };
+  }
 });

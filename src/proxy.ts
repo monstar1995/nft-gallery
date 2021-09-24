@@ -1,4 +1,6 @@
 import Axios from 'axios';
+import { NFT, NFTMetadata } from './components/rmrk/service/scheme';
+import { APIKeys, pinFile as pinFileToIPFS } from './pinata';
 import { extractCid, justHash } from './utils/ipfs';
 
 export const BASE_URL = `${window.location.origin}/.netlify/functions/`;
@@ -19,9 +21,67 @@ export const pinJson = async (object: any) => {
   }
 };
 
+export const getKey = async (address: string) => {
+  try {
+    const { status, data } = await api.get('getKey', { params: { address }});
+    console.log('[PROXY] Obtain', status);
+    if (status < 400) {
+      return data;
+    }
+  } catch (e) {
+    throw e;
+  }
+};
+
+export const revokeKey = async (key: string) => {
+  try {
+    const { status, data } = await api.get('revokeKey', { params: { key }});
+    console.log('[PROXY] Revoke', status);
+    if (status < 400) {
+      return data as APIKeys;
+    }
+  } catch (e) {
+    throw e;
+  }
+
+  throw new Error('Key not found');
+};
+
+export const pinFileDirect = async (file: Blob): Promise<string> => {
+  try {
+    const keys: APIKeys = await getKey(`${file.type}::${file.size}`);
+    const cid = await pinFileToIPFS(file, keys)
+    revokeKey(keys.pinata_api_key).then(console.log, console.warn);
+    return cid;
+  } catch (e) {
+    throw e;
+  }
+};
+
 export const pinFile = async (file: Blob): Promise<string> => {
   const formData = new FormData();
   formData.append('data', file);
+
+  try {
+    const { status, data } = await api.post('pinFile', formData, {
+      headers: {
+        'Content-Type': `multipart/form-data;`
+      }
+    });
+    console.log('[PROXY] Pin Image', status, data);
+    if (status < 400) {
+      return data.IpfsHash;
+    } else {
+      throw new Error('Unable to PIN for reasons');
+    }
+  } catch (e) {
+    throw e;
+  }
+};
+
+export const pinFileViaSlate = async (file: Blob): Promise<string> => {
+  const formData = new FormData();
+  formData.append('file', file);
 
   const SLATE_URL = 'https://uploads.slate.host/api/public'
 
@@ -38,6 +98,44 @@ export const pinFile = async (file: Blob): Promise<string> => {
       return data.data.cid;
     } else {
       throw new Error('Unable to PIN for reasons');
+    }
+  } catch (e) {
+    throw e;
+  }
+};
+
+const PERMAFROST_URL = process.env.VUE_APP_PERMAFROST_URL
+export const permaStore = async (nftMeta: NFTMetadata, file: Blob, collection: string): Promise<string> => {
+
+  if (!PERMAFROST_URL) {
+    throw new Error('No Permafrost URL set')
+  }
+
+  const formData = new FormData();
+  formData.append('avatar', file);
+
+  Object.entries(nftMeta).forEach(([key, value]) => {
+    if (key === 'attributes') {
+      formData.append('attributes', JSON.stringify(value));
+    } else {
+      formData.append(key, value);
+    }
+
+  });
+
+  formData.append('collection', collection);
+
+  try {
+    const { status, data } = await Axios.post(PERMAFROST_URL + '/store', formData, {
+      headers: {
+        'Content-Type': `multipart/form-data`,
+      }
+    });
+    console.log('[PROXY] Permafrost', status, data);
+    if (status < 400) {
+      return data.arweaveId
+    } else {
+      throw new Error('Unable to store for reasons');
     }
   } catch (e) {
     throw e;

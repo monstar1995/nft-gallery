@@ -124,7 +124,7 @@
           </div>
           <b-button
             tag="a"
-            href="https://github.com/kodadot"
+            href="https://github.com/kodadot/nft-gallery/issues/new/choose"
             target="_blank"
             rel="noopener noreferrer"
             type="is-primary"
@@ -230,7 +230,7 @@ export default class Landing extends Vue {
   height: 100%;
 
   @include desktop {
-    background: url('../../assets/homepage-bg.png') center bottom;
+    background: url('/homepage-bg.jpg') center bottom;
     background-repeat: no-repeat;
     background-size: contain;
   }

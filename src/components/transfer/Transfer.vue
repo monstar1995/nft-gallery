@@ -1,184 +1,331 @@
 <template>
-  <div id="transfer">
-    <DisabledInput v-if="conn.chainName"
-      label="Chain" :value="conn.chainName" />
-    <DisabledInput v-if="conn.blockNumber"
-      label="Best Block" :value="conn.blockNumber" />
-		<b-field v-else>
-			<p class="has-text-danger">You are not connected.
-				<router-link :to="{ name: 'settings' }">
-				Go to settings and pick node</router-link>
-			</p>
-		</b-field>
-    <Dropdown mode='accounts' :externalAddress="transfer.from"
-			@selected="handleAccountSelectionFrom" />
-    <Dropdown :externalAddress="transfer.to"
-			@selected="handleAccountSelectionTo" />
-    <Balance :argument="{ name: 'balance', type: 'balance' }" @selected="handleValue"  />
-    <b-field label="password 🤫 magic spell" class="password-wrapper">
-      <b-input v-model="password" type="password" password-reveal>
-      </b-input>
-    </b-field>
-      <div class="transaction buttons">
-      <b-button
-        type="is-primary"
-        icon-left="paper-plane"
-        outlined
-        :disabled="!accountFrom"
-        @click="shipIt">
-				Make Transfer
-      </b-button>
-      <b-button v-if="tx" tag="a" target="_blank" rel="noopener noreferrer" :href="getExplorerUrl(tx)"
-        icon-left="external-link-alt">
-        View {{ tx.slice(0, 10) }}
-      </b-button>
+  <div class="columns mb-6">
+    <div class="column is-6 is-offset-3">
+      <section>
+        <br />
+        <Loader v-model="isLoading" :status="status" />
+        <router-link :to="`rmrk/u/${destinationAddress}`" class="linkartist"  v-if="this.$route.query.target">
+          <b-icon icon="chevron-left" size="is-small" class="linkartist--icon"></b-icon>
+           Go to artist's profile
+        </router-link>
+        <div class="box">
+          <div class="info">
+            <p class="title is-size-3">
+            Transfer {{ unit }}
+            </p>
+            <span class="info--currentPrice" title='Current price'>${{this.$store.getters.getCurrentKSMValue}} </span>
+          </div>
+
+          <b-field>
+            <Auth />
+          </b-field>
+          <div class="box--target-info" v-if="this.$route.query.target">
+            Your donation will be sent to: 
+            <a
+              :href="`https://kusama.subscan.io/account/${this.$route.query.target}`"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="box--target-info--url"
+            >
+              <Identity ref="identity" :address="this.$route.query.target" inline />
+            </a>
+          </div>
+
+          <b-field>
+            {{ $t("general.balance") }}
+            <Money :value="balance" inline />
+          </b-field>
+
+          <b-field>
+            <AddressInput v-model="destinationAddress" />
+          </b-field>
+          <div class="box--container">
+           <b-field>
+            <BalanceInput v-model="price" label="Amount" :calculate="false" @input="onAmountFieldChange"/>
+           </b-field>
+           <b-field>
+            <ReadOnlyBalanceInput v-model="usdValue" @input="onUSDFieldChange" labelInput="USD Value (approx)" label="USD" />
+           </b-field>
+          </div>
+
+          <b-field>
+            <b-button
+              type="is-primary"
+              icon-left="paper-plane"
+              :loading="isLoading"
+              :disabled="disabled"
+              @click="submit"
+              outlined
+            >
+              {{ $t("general.submit") }}
+            </b-button>
+             <b-button
+              v-if="transactionValue"
+              type="is-success"
+              class="tx"
+              icon-left="external-link-alt"
+              @click="getExplorerUrl"
+              outlined
+            >
+              {{ $t("View Transaction")}} {{transactionValue.substring(0,6)}}{{'...'}}
+            </b-button>
+          </b-field>
+          <div v-if="transactionValue && this.$route.query.donation">
+            <div class="is-size-5">🎉 Congratulations for supporting      
+             <Identity ref="identity" :address="this.$route.query.target" inline />
+            </div>
+            <b-button
+              type="is-info"
+              class="tweetBtn"
+              icon-left="share-square"
+              @click="shareInTweet"
+              outlined
+             >
+             {{$t("Tweet about your awesome donation")}}
+            </b-button>
+          </div>
+        </div>
+      </section>
     </div>
   </div>
 </template>
-<script lang="ts">
-import { Component, Prop, Vue, Watch } from 'vue-property-decorator';
-import Identicon from '@polkadot/vue-identicon';
-import keyring from '@polkadot/ui-keyring';
-import Selection from '@/components/extrinsics/Selection.vue';
-import Balance from '@/params/components/Balance.vue';
-import Account from '@/params/components/Account.vue';
-import { KeyringPair } from '@polkadot/keyring/types';
-import Dropdown from '@/components/shared/Dropdown.vue';
-import DisabledInput from '@/components/shared/DisabledInput.vue';
-import Connector from '@vue-polkadot/vue-api';
-import { urlBuilderTransaction } from '@/utils/explorerGuide';
-import shortAddress from '@/utils/shortAddress';
-import exec, { execResultValue } from '@/utils/transactionExecutor';
-import { showNotification } from '@/utils/notification';
 
+<script lang="ts">
+import { Component, Mixins, Watch } from 'vue-property-decorator';
+import Connector from '@vue-polkadot/vue-api';
+import exec, { execResultValue, txCb } from '@/utils/transactionExecutor';
+import { notificationTypes, showNotification } from '@/utils/notification';
+import TransactionMixin from '@/utils/mixins/txMixin';
+import AuthMixin from '@/utils/mixins/authMixin';
+import shouldUpdate from '@/utils/shouldUpdate';
+import ChainMixin from '@/utils/mixins/chainMixin';
+import { DispatchError } from '@polkadot/types/interfaces';
+import { calculateBalance } from '@/utils/formatBalance';
+import correctFormat from '@/utils/ss58Format';
+import { checkAddress } from '@polkadot/util-crypto';
+import { urlBuilderTransaction } from '@/utils/explorerGuide';
+import { calculateUsdFromKsm, calculateKsmFromUsd } from '@/utils/calculation'
 @Component({
   components: {
-    Identicon,
-    Selection,
-    Balance,
-    Account,
-    Dropdown,
-    DisabledInput,
-  },
+    Auth: () => import('@/components/shared/Auth.vue'),
+    BalanceInput: () => import('@/components/shared/BalanceInput.vue'),
+    ReadOnlyBalanceInput: () => import('@/components/shared/ReadOnlyBalanceInput.vue'),
+    Identity: () => import('@/components/shared/format/Identity.vue'),
+    Loader: () => import('@/components/shared/Loader.vue'),
+    AddressInput: () => import('@/components/shared/AddressInput.vue'),
+    Money: () => import('@/components/shared/format/Money.vue')
+  }
 })
-export default class Transfer extends Vue {
-  public theme: string = 'substrate';
-  public tx: string = '';
-  public password: string = '';
-  public transfer: any = {
-    from: null,
-    fromBalance: null,
-    to: null,
-    toBalance: null,
-    amountVisible: null,
-    amount: null };
-  public keyringAccounts: any = [];
-  public conn: any = { blockNumber: '', chainName: ''};
-  private balance = 0;
-  private accountFrom: any = null;
-  private accountTo: any = null;
+export default class Transfer extends Mixins(
+  TransactionMixin,
+  AuthMixin,
+  ChainMixin
+) {
+  protected balance: string = '0';
+  protected destinationAddress: string = '';
+  protected transactionValue: string = '';
+  protected price: number = 0;
+  protected usdValue: number = 0;
 
-  private snackbarTypes = {
-    success: {
-      type: 'is-success',
-      actionText: 'View',
-      onAction: () => window.open(this.getExplorerUrl(this.tx), '_blank'),
-    },
-    info: {
-      type: 'is-info',
-      actionText: 'OK',
-    },
-    danger: {
-      type: 'is-danger',
-      actionText: 'Oh no!',
-    },
-  };
-
-  getExplorerUrl(value: string) {
-    return urlBuilderTransaction(value,
-      this.$store.state.explorer.chain,
-      this.$store.state.explorer.provider)
+  get disabled(): boolean {
+    return !this.destinationAddress || !this.price || !this.accountId;
   }
 
+  protected created() {
+    this.checkQueryParams();
+  }
 
+  protected onAmountFieldChange() {
+    /* calculating usd value on the basis of price entered */
+    if (this.price) {
+      this.usdValue = calculateUsdFromKsm(this.$store.getters.getCurrentKSMValue, this.price);
+    } else {
+      this.usdValue = 0;
+    }
+  }
 
-  public async shipIt(): Promise<void> {
-    const { api } = Connector.getInstance();
-      try {
-        showNotification('Dispatched');
-        console.log([this.accountTo.address, this.balance])
-        const tx = await exec(this.accountFrom.address, this.password, api.tx.balances.transfer, [this.accountTo.address, this.balance?.toString()]);
-        showNotification(execResultValue(tx), this.snackbarTypes.success);
-      } catch (e) {
-        console.error('[ERR: TRANSFER SUBMIT]', e)
-        showNotification(e.message, this.snackbarTypes.danger);
+  protected onUSDFieldChange() {
+    /* calculating price value on the basis of usd entered */
+    if (this.usdValue) {
+      this.price = calculateKsmFromUsd(this.$store.getters.getCurrentKSMValue, this.usdValue);
+    } else {
+      this.price = 0;
+    }
+  }
+
+  protected checkQueryParams() {
+    const { query } = this.$route;
+
+    if (query.target) {
+      const [valid, err] = checkAddress(query.target as string, correctFormat(this.chainProperties.ss58Format));
+      if (valid) {
+        this.destinationAddress = query.target as string;
       }
-  }
 
-  @Watch('$store.state.keyringLoaded')
-  public mapAccounts(): void {
-    if (this.isKeyringLoaded() === true) {
-      this.keyringAccounts = keyring.getPairs();
+      if (err) {
+        showNotification(`Unable to parse target ${err}`,notificationTypes.warn);
+      }
+    }
+
+    if (query.amount) {
+      this.price = Number(query.amount);
+    }
+
+    if (query.usdamount) {
+      this.usdValue = Number(query.usdamount);
+      // getting ksm value from the usd value
+      this.price = calculateKsmFromUsd(this.$store.getters.getCurrentKSMValue, this.usdValue);
     }
   }
 
-  public isKeyringLoaded() {
-    return this.$store.state.keyringLoaded;
-  }
+  public async submit(): Promise<void> {
+    showNotification(`${this.$route.query.target ? 'Sent for Sign' : 'Dispatched'}`);
+    this.initTransactionLoader();
 
-  public getIconTheme() {
-    this.theme = this.$store.state.setting.icon;
-  }
+    try {
+      const { api } = Connector.getInstance();
+      const cb = api.tx.balances.transfer;
+      const arg = [this.destinationAddress, calculateBalance(this.price, this.decimals)];
 
-  public async loadExternalInfo() {
-    if ((this as any).$http.api) {
-      const apiBestNumber = await (this as any).$http.api.derive.chain.bestNumber();
-      this.conn.blockNumber = await apiBestNumber.toString();
-      const apiResponse = await (this as any).$http.api.rpc.system.chain();
-      this.conn.chainName = await apiResponse.toString();
+      const tx = await exec(this.accountId, '', cb, arg,
+      txCb(
+          async blockHash => {
+            this.transactionValue = execResultValue(tx);
+            const header = await api.rpc.chain.getHeader(blockHash);
+            const blockNumber = header.number.toString();
+
+            showNotification(
+              `[${this.unit}] Transfered ${this.price} ${this.unit} in block ${blockNumber}`,
+              notificationTypes.success
+            );
+
+            this.destinationAddress = '';
+            this.price = 0;
+            this.usdValue = 0;
+            if (this.$route.query && !this.$route.query.donation) {
+              this.$router.push(this.$route.path);
+            }
+
+            this.isLoading = false;
+          },
+          dispatchError => {
+            execResultValue(tx);
+            this.onTxError(dispatchError);
+            this.isLoading = false;
+          },
+          res => this.resolveStatus(res.status)
+        )
+      );
+    } catch (e) {
+      console.error('[ERR: TRANSFER SUBMIT]', e);
+      if (e instanceof Error) {
+        showNotification(e.message, notificationTypes.danger);
+      }
     }
   }
 
-  public handleAccountSelectionFrom(account: KeyringPair) {
-    this.accountFrom = account;
-  }
-
-  public handleAccountSelectionTo(account: KeyringPair) {
-    this.accountTo = account;
-  }
-
-  public handleValue(value: any) {
-    Object.keys(value).map((item) => {
-      (this as any)[item] = value[item];
-    });
-  }
-
-  public externalURI() {
-    if (this.$route.params.from) {
-      this.transfer.from = this.$route.params.from;
+    protected onTxError(dispatchError: DispatchError): void {
+    const { api } = Connector.getInstance();
+    if (dispatchError.isModule) {
+      const decoded = api.registry.findMetaError(dispatchError.asModule);
+      const { docs, name, section } = decoded;
+      showNotification(
+        `[ERR] ${section}.${name}: ${docs.join(' ')}`,
+        notificationTypes.danger
+      );
+    } else {
+      showNotification(
+        `[ERR] ${dispatchError.toString()}`,
+        notificationTypes.danger
+      );
     }
-    if (this.$route.params.to) {
-      this.transfer.to = this.$route.params.to;
+
+    this.isLoading = false;
+  }
+
+  protected getUrl() {
+    return urlBuilderTransaction(this.transactionValue,
+      this.$store.getters.getCurrentChain, 'subscan');
+  }
+
+  protected getExplorerUrl() {
+    const url =  this.getUrl();
+    window.open(url, '_blank');
+  }
+
+  protected shareInTweet() {
+    const text = 'I have just helped a really cool creator by donating. Check my donation proof:'
+    const url = `https://twitter.com/intent/tweet?text=${text}&via=KodaDot&url=${this.getUrl()}`;
+    window.open(url, '_blank');
+  }
+
+  @Watch('accountId', { immediate: true })
+  hasAccount(value: string, oldVal: string) {
+    if (shouldUpdate(value, oldVal)) {
+      this.loadBalance();
     }
   }
 
-  public mounted(): void {
-    this.mapAccounts();
-    this.getIconTheme();
-    this.loadExternalInfo();
-    this.externalURI();
-  }
+  async loadBalance() {
+    if (!this.accountId || !this.unit) {
+      return;
+    }
 
+    await new Promise(a => setTimeout(a, 1000));
+    const { api } = Connector.getInstance();
+
+    try {
+      const cb = api.query.system.account;
+      const arg = this.accountId;
+      const result = await cb(arg);
+      this.balance = (result as any).data.free.toString();
+    } catch (e) {
+      console.error('[ERR: BALANCE]', e);
+    }
+  }
 }
 </script>
 
-<style scoped>
-.transaction.buttons {
-  margin-top: 1em;
-  float: right;
-}
-
-.password-wrapper {
-  margin-top: 1em;
-}
+<style scoped lang="scss">
+@import '@/styles/variables';
+   .info {
+     display: flex;
+     align-items: center;
+     &--currentPrice {
+        margin-bottom: 1.5rem;
+        margin-left: 1.5rem;
+        color: $primary;
+        font-size: 1.5rem;
+        font-weight: 600;
+     }
+    }
+    .tx {
+       margin-left: 1rem;
+    }
+    .tweetBtn {
+       margin-top: 0.5rem;
+    }
+    .box {
+      &--container {
+        display: flex;
+        justify-content: space-between;
+        @media screen and (max-width: 1023px) {
+         flex-direction: column;
+        }
+      }
+      &--target-info {
+        margin-bottom: 0.8rem;
+        &--url {
+          font-weight: bold;
+        }
+      }
+    }
+    .linkartist {
+      padding-left: 1.25rem;
+      display: flex;
+      align-items: center; 
+      &--icon {
+        margin-right: 0.5rem;
+      }
+    }
 </style>
