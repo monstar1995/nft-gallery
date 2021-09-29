@@ -14,7 +14,7 @@
           </b-icon>
         </b-button>
       </div>
-      <div class="card-footer-item" v-if="!onlyCopyLink" @click="active = !active" @focusout="active = !active">
+      <div class="card-footer-item" v-if="!onlyCopyLink" @click="shareTooltip" @focusout="openFallbackShareTooltip">
         <b-tooltip
           position="is-left"
           class="share__tooltip"
@@ -169,8 +169,8 @@
 </template>
 
 <script lang="ts" >
-import { Component, Prop, Vue } from 'vue-property-decorator';
-import { IFrame, emptyIframe } from '../../types';
+import { Component, Prop, Vue } from 'vue-property-decorator'
+import { IFrame, emptyIframe } from '../../types'
 
 @Component({})
 export default class Sharing extends Vue {
@@ -178,26 +178,26 @@ export default class Sharing extends Vue {
   @Prop({ default: () => emptyIframe }) iframe!: IFrame;
   @Prop(Boolean) onlyCopyLink!: boolean;
 
-  private active: boolean = false;
+  private active = false;
 
   get helloText() {
-    return this.label;
+    return this.label
   }
 
   get realworldFullPath() {
-    return `${window.location.origin}${this.$route.fullPath}`;
+    return `${window.location.origin}${this.$route.fullPath}`
   }
 
   get realworldFullPathShare() {
-    return `${window.location.origin}${this.$route.fullPath}`;
+    return `${window.location.origin}${this.$route.fullPath}`
   }
 
   get telegramUri() {
-    return `tg://msg_url?url=${this.realworldFullPath}&text=${this.helloText}`;
+    return `tg://msg_url?url=${this.realworldFullPath}&text=${this.helloText}`
   }
 
   get twitterUri() {
-    return `https://twitter.com/intent/tweet?text=${this.helloText}&via=KodaDot&url=${this.realworldFullPath}`;
+    return `https://twitter.com/intent/tweet?text=${this.helloText}&via=KodaDot&url=${this.realworldFullPath}`
   }
 
   // get linemeUri() {
@@ -227,7 +227,30 @@ export default class Sharing extends Vue {
   }
 
   public toast(message: string): void {
-    this.$buefy.toast.open(message);
+    this.$buefy.toast.open(message)
+  }
+
+  public async shareTooltip() {
+    this.openFallbackShareTooltip()
+    if (navigator.share) {
+      const shareData = {
+        title: 'KodaDot',
+        text: this.label,
+        url: this.realworldFullPath,
+      }
+      try {
+        await navigator.share(shareData)
+      } catch (err) {
+        console.error(err)
+      }
+    }
+  }
+
+  public openFallbackShareTooltip() {
+    // only call this when share api is not available, example on web
+    if (!navigator.share) {
+      this.active = !this.active
+    }
   }
 }
 </script>
