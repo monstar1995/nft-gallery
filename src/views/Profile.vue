@@ -58,13 +58,14 @@
         :label="`Collections - ${totalCollections}`"
         value="collection"
       >
-        <Pagination :total="totalCollections" v-model="currentCollectionPage" />
+        <Pagination replace :total="totalCollections" v-model="currentCollectionPage" />
         <GalleryCardList
           :items="collections"
           type="collectionDetail"
           link="rmrk/collection"
         />
         <Pagination
+          replace
           class="pt-5 pb-5"
           :total="totalCollections"
           v-model="currentCollectionPage"
@@ -107,14 +108,9 @@
 import { Component, Vue, Watch } from 'vue-property-decorator'
 import { notificationTypes, showNotification } from '@/utils/notification'
 import { sanitizeIpfsUrl, fetchNFTMetadata } from '@/components/rmrk/utils'
-
-import {
-  CollectionWithMeta,
-  NFTWithMeta,
-  Pack
-} from '@/components/rmrk/service/scheme'
+import { exist } from '@/components/rmrk/Gallery/Search/exist'
+import { CollectionWithMeta, Pack } from '@/components/rmrk/service/scheme'
 import isShareMode from '@/utils/isShareMode'
-import Identity from '../components/shared/format/Identity.vue'
 import shouldUpdate from '@/utils/shouldUpdate'
 import collectionList from '@/queries/collectionListByAccount.graphql'
 import nftListByIssuer from '@/queries/nftListByIssuer.graphql'
@@ -216,7 +212,9 @@ export default class Profile extends Vue {
 
   public async mounted() {
     await this.fetchProfile()
-
+    exist(this.$route.query.tab, (val) => {
+      this.activeTab = val
+    })
   }
 
   public checkId() {
@@ -332,6 +330,16 @@ export default class Profile extends Vue {
       ['nft', 'collection', 'pack'].some(eq(this.$route.params.tab))
     ) {
       this.activeTab = this.$route.params.tab
+    }
+  }
+
+  @Watch('activeTab')
+  protected onTabChange(val: string, oldVal: string) {
+    if (shouldUpdate(val, oldVal)) {
+      this.$router.replace({
+        name: String(this.$route.name),
+        query: { tab: val },
+      })
     }
   }
 
